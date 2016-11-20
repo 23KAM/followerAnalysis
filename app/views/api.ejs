@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <% include partial_head.ejs %>
+  <body>
+    <h1><%= pageTitle  %></h1>
+    <div class="container">
+      <table class="table table-bordered">
+        <thead>
+          <% for(var i=0; i<columns.length; i++) {%>
+            <th><%= columns[i] %></th>
+          <% } %>
+        </thead>
+        <tbody>
+          <% for(var i=0; i<data.length; i++) {%>
+            <tr>
+            <% for(var c=0; c<columns.length; c++) {%>
+              <td><%= data[i][columns[c]] %></td>
+            <% } %>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </body>
+</html>

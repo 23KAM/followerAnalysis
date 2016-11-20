@@ -1,0 +1,17 @@
+{
+  "name": "followerAnalysis",
+  "version": "1.0.0",
+  "description": "Simple web api that gets twitter followers",
+  "main": "app/app.js",
+  "scripts": {
+    "start": "node app/app.js"
+  },
+  "author": "KAM Wright",
+  "license": "MIT",
+  "dependencies": {
+    "body-parser": "^1.15.2",
+    "ejs": "^2.4.2",
+    "express": "^4.14.0",
+    "twitter": "^1.4.0"
+  }
+}
