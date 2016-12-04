@@ -1,7 +1,7 @@
-var express = require('express');
+var express = require("express");
 var router = express.Router();
-var twitter = require('twitter');
-var sleep = require('sleep');
+var twitter = require("twitter");
+var sleep = require("sleep");
 
 var consumer_key = process.env.CK;
 var consumer_secret = process.env.CS;
@@ -15,7 +15,7 @@ var client = new twitter({
   access_token_secret: access_secret
 });
 
-router.get('/:handle', function(req, res) {
+router.get("/api/:handle", function(req, res) {
   var handle = req.params.handle;
 
   var opts = {
@@ -25,11 +25,11 @@ router.get('/:handle', function(req, res) {
     count: 5000
   };
 
-  client.get("users/lookup", {screen_name: handle}, function getIds(err, data, raw) {
+  client.get("users/lookup", {screen_name: handle}, function (err, data, raw) {
 
-    if(typeof data != 'undefined' && data.length>0) {
+    if(typeof data !== "undefined" && data.length>0) {
 
-      req.app.locals.io.emit('setUpdateText', {
+      req.app.locals.io.emit("setUpdateText", {
         text: `Collecting twitter data for handle: ${data[0].name}`,
         num_follows: data[0].followers_count
       });
@@ -40,12 +40,13 @@ router.get('/:handle', function(req, res) {
 
     } else {
       setTimeout(function () {
-        req.app.locals.io.emit('returnHome');
+        console.log("Something went wrong, returning home...")
+        req.app.locals.io.emit("returnHome");
       }, 0);
     }
   });
 
-  res.render('api', {
+  res.render("api", {
     pageTitle: "Analysis Results",
     twitterHandle : handle
   });
@@ -60,16 +61,19 @@ function collectTwitterIds(req, opts, user) {
   opts.cursor = "-1";
   var res = [];
 
-  console.log('Collecting twitter ids');
+  console.log("Collecting twitter ids");
 
-  client.get("followers/ids", opts, function (err, data, raw) { getIds(data,req,res,user,opts); } );
+  client.get("followers/ids", opts, function (err, data, raw) {
+    getIds(data,req,res,user,opts);
+  });
 
 }
 
 function getIdString(ids) {
 
   var sub_id_list = [];
-  for (var i = 0; i < 100; i++) {
+  var i = 0;
+  for (i = 0; i < 100; i++) {
     if (ids.length > 0) {
       sub_id_list.push(ids.pop());
     }
@@ -104,27 +108,36 @@ function getUsers(users, req, res, data, user, opts) {
   }
 
   setTimeout(function() {
-    req.app.locals.io.emit('updateData', {data:res});
+    req.app.locals.io.emit("updateData", {data:res});
   }, 0);
 
   setTimeout(function() {
-    req.app.locals.io.emit('setUpdateText', {
+    req.app.locals.io.emit("setUpdateText", {
       text: `Still getting the data for ${user.name}`,
       num_follows: (user.followers_count - res.length)
     });
   }, 0);
 
+  if (res.length >= user.followers_count) {
+    return;
+  }
+
   if (data.ids.length > 0) {
 
-    client.get("users/lookup", {
-      user_id: getIdString(data.ids),
-      include_entities:false
-    }, function (err, users, raw) { getUsers(users, req, res, data, user, opts) } );
+    setTimeout(function() {
+
+      client.get("users/lookup", {
+        user_id: getIdString(data.ids),
+        include_entities:false
+      }, function (err, users, raw) {
+        getUsers(users, req, res, data, user, opts);
+      });
+    }, 10000);
 
   } else {
 
     setTimeout(function() {
-      req.app.locals.io.emit('setUpdateText', {
+      req.app.locals.io.emit("setUpdateText", {
         text: `Still getting the data for ${user.name}`,
         num_follows: (user.followers_count - res.length)
       });
@@ -141,23 +154,34 @@ function getUsers(users, req, res, data, user, opts) {
 
 function getIds(data, req, res, user, opts) {
 
-  if (typeof data.ids != 'undefined') {
+  if (res.length >= user.followers_count) {
+    return;
+  }
+
+  if (typeof data.ids !== "undefined") {
     client.get("users/lookup", {
       user_id: getIdString(data.ids),
       include_entities:false
-    }, function (err, users, raw) { getUsers(users, req, res, data, user, opts); } );
+    }, function (err, users, raw) {
+      getUsers(users, req, res, data, user, opts);
+    });
 
   } else {
 
+    console.log("Something has gone wrong, calling function again in 2 mins secs");
+
     setTimeout(function () {
-      req.app.locals.io.emit('setUpdateText', {
+      req.app.locals.io.emit("setUpdateText", {
         text: "Twitter API rate exceeded, follower download paused...",
         num_follows: (user.followers_count - res.length)
       });
     },0);
-    sleep.sleep(10);
 
-    setTimeout(function() { getIds(data, req, res, user, opts) }, 0);
+    setTimeout(function() {
+      client.get("followers/ids", opts, function (err, data, raw) {
+        getIds(data, req, res, user, opts);
+      });
+    }, 120000);
 
   }
 }

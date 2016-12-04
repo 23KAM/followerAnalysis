@@ -1,16 +1,5 @@
 var socket = io();
 
-function strip(html)
-{
-   var tmp = document.createElement("DIV");
-   tmp.innerHTML = html;
-   return tmp.textContent || tmp.innerText || "";
-}
-
-$('#twitter-analysis').click(function() {
-  window.location.href += strip($('#twitter-handle')[0].value);
-})
-
 socket.on('returnHome', function (data) {
   window.location.href = "/err";
 });
