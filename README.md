@@ -1,2 +1,5 @@
 # followerAnalysis
-Small web app for analysing twitter followers, uses the Twitter REST API, in particular: https://dev.twitter.com/overview/api/users
+Small web app for getting data for twitter followers for a specific uses, uses the Twitter REST API, in particular: https://dev.twitter.com/overview/api/users
+
+# Implementation
+The projected is hosted on the following heroku: 
