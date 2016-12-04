@@ -1,6 +1,7 @@
 var express = require('express');
 var router = express.Router();
 var twitter = require('twitter');
+var sleep = require('sleep');
 
 var consumer_key = process.env.CK;
 var consumer_secret = process.env.CS;
@@ -14,39 +15,149 @@ var client = new twitter({
   access_token_secret: access_secret
 });
 
-router.get('/:handles', function(req, res) {
-  var handles = req.params.handles.split(",");
-  var result = [];
-  var cols = ["Name", "Followers", "Following", "Tweets", "Bio"]
+router.get('/:handle', function(req, res) {
+  var handle = req.params.handle;
 
-  handles.forEach(function (handle) {
-    client.get("users/show", {screen_name: handle}, function (error, data, raw) {
-      var data_obj = {};
-      cols.forEach(function (col) {
-        if (col===cols[0]) {
-          data_obj[col] = data.name;
-        } else if (col==cols[1]) {
-          data_obj[col] = data.followers_count
-        } else if (col==cols[2]) {
-          data_obj[col] = data.friends_count
-        } else if (col==cols[3]) {
-          data_obj[col] = data.statuses_count
-        } else if (col==cols[4]) {
-          data_obj[col] = data.description
-        }
+  var opts = {
+    screen_name: handle,
+    cursor: "",
+    stringify_ids: true,
+    count: 5000
+  };
+
+  client.get("users/lookup", {screen_name: handle}, function getIds(err, data, raw) {
+
+    if(typeof data != 'undefined' && data.length>0) {
+
+      req.app.locals.io.emit('setUpdateText', {
+        text: `Collecting twitter data for handle: ${data[0].name}`,
+        num_follows: data[0].followers_count
       });
-      result.push(data_obj);
 
-      if (result.length === handles.length) {
-        res.render('api', {
-          pageTitle: "Analysis Results",
-          data: result,
-          columns: cols
-        });
-      }// return result after on the last call
-    });
+      setTimeout(function () {
+        collectTwitterIds(req,opts,data[0]);
+      }, 0);
+
+    } else {
+      setTimeout(function () {
+        req.app.locals.io.emit('returnHome');
+      }, 0);
+    }
+  });
+
+  res.render('api', {
+    pageTitle: "Analysis Results",
+    twitterHandle : handle
   });
 
 });
 
+
 module.exports = router;
+
+function collectTwitterIds(req, opts, user) {
+
+  opts.cursor = "-1";
+  var res = [];
+
+  console.log('Collecting twitter ids');
+
+  client.get("followers/ids", opts, function (err, data, raw) { getIds(data,req,res,user,opts); } );
+
+}
+
+function getIdString(ids) {
+
+  var sub_id_list = [];
+  for (var i = 0; i < 100; i++) {
+    if (ids.length > 0) {
+      sub_id_list.push(ids.pop());
+    }
+  }
+  return sub_id_list.join(",");
+
+}
+
+function getUsers(users, req, res, data, user, opts) {
+
+  for (var u = 0; u < users.length; u++) {
+    var user_obj = {
+      Name: users[u].name,
+      ScreenName: users[u].screen_name,
+      Followers: users[u].followers_count,
+      Following: users[u].friends_count,
+      Tweets: users[u].statuses_count,
+      Bio: users[u].description,
+      GeoLocation: users[u].location,
+      TimeZone: users[u].time_zone,
+      CreatedDate: users[u].created_at,
+      TimeZone: users[u].time_zone,
+      Favourites: users[u].favourites_count,
+      Website: users[u].url,
+      ListCount: users[u].listed_count,
+      Language: users[u].lang,
+      Protected: users[u].protected,
+      GeoEnabled: users[u].geo_enabled,
+      Verified: users[u].verified
+    };
+    res.push(user_obj);
+  }
+
+  setTimeout(function() {
+    req.app.locals.io.emit('updateData', {data:res});
+  }, 0);
+
+  setTimeout(function() {
+    req.app.locals.io.emit('setUpdateText', {
+      text: `Still getting the data for ${user.name}`,
+      num_follows: (user.followers_count - res.length)
+    });
+  }, 0);
+
+  if (data.ids.length > 0) {
+
+    client.get("users/lookup", {
+      user_id: getIdString(data.ids),
+      include_entities:false
+    }, function (err, users, raw) { getUsers(users, req, res, data, user, opts) } );
+
+  } else {
+
+    setTimeout(function() {
+      req.app.locals.io.emit('setUpdateText', {
+        text: `Still getting the data for ${user.name}`,
+        num_follows: (user.followers_count - res.length)
+      });
+    }, 0);
+
+    if (users.next_cur_str!=="0") {
+      opts.cursor = data.next_cur_str;
+      client.get("followers/ids", opts, function (err, data, raw) {
+        getIds(data,req,res, user, opts);
+      });
+    }
+  }
+}
+
+function getIds(data, req, res, user, opts) {
+
+  if (typeof data.ids != 'undefined') {
+    client.get("users/lookup", {
+      user_id: getIdString(data.ids),
+      include_entities:false
+    }, function (err, users, raw) { getUsers(users, req, res, data, user, opts); } );
+
+  } else {
+
+    setTimeout(function () {
+      req.app.locals.io.emit('setUpdateText', {
+        text: "Twitter API rate exceeded, follower download paused...",
+        num_follows: (user.followers_count - res.length)
+      });
+    },0);
+    sleep.sleep(10);
+
+    setTimeout(function() { getIds(data, req, res, user, opts) }, 0);
+
+  }
+}

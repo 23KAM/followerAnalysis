@@ -2,7 +2,25 @@
 <html>
   <% include partial_head.ejs %>
   <body>
-    <h1><%= pageTitle  %></h1>
-    <a href="/vote_leave,openbritain,leaveeuofficial">Example Analysis</a>
+
+    <div class="jumbotron">
+    </div>
+
+    <div class="container">
+      <div class="row">
+        <div class="col-md-6 col-md-offset-3 text-center">
+          <h1><%= pageTitle  %></h1>
+          <p><%= pageMessage  %></p>
+
+          <div class="form-group">
+            <label for="twitter-handle">Twitter Handle:</label>
+            <input type="text" class="form-control" id="twitter-handle">
+          </div>
+
+          <button id="twitter-analysis" class="btn btn-default">Get Followers</button>
+        </div>
+      </div>
+    </div>
+    <script src='/js/site.js'></script>
   </body>
 </html>
